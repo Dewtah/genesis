@@ -3250,11 +3250,12 @@ sub kit_name_and_version_for {
 
 sub check_kit_prereqs {
 	my ($kit, $version) = @_;
-	my $script = kit_file($kit, $version, "prereqs", 0);
+	my $script = kit_file($kit, $version, "hooks/prereqs", 0);
 	return unless -e $script;
-	-x $script or die "Prereqs script $script was found, but is not executable...\n";
-	qx(./dev/prereqs);
-	$? == 0 or die "Some prerequisites for this Genesis Kit have not been met.\n";
+	explain "Checking kit pre-requisites...\n";
+	-x $script || chmod_or_fail 0755, $script;
+	my $out = qx($script);
+	$? == 0 or die "Some prerequisites for this Genesis Kit have not been met:\n$out\n";
 }
 
 sub prompt_for_subkits_alternates {
@@ -4082,7 +4083,6 @@ sub {
 
 	my $meta = read_kit_metadata($kit, $version);
 
-	explain "Checking kit pre-requisites...\n";
 	check_kit_prereqs($kit, $version);
 
 	my @subkits = prompt_for_subkits($meta->{subkits} || []);
