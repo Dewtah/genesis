@@ -2847,6 +2847,10 @@ sub generate_pipeline_human_description {
 	}
 }
 
+sub is_semver {
+	return $_[0] =~ m/^(\d+)(?:\.(\d+)(?:\.(\d+)(?:[.-]rc[.-]?(\d+))?)?)?$/;
+}
+
 sub semver {
 	my ($name, $v) = @_;
 	if ($v =~  m/^(\d+)(?:\.(\d+)(?:\.(\d+)(?:[.-]rc[.-]?(\d+))?)?)?$/) {
@@ -3067,6 +3071,28 @@ sub validate_kit_metadata {
 	$kit ||= "dev";
 	$version = "latest" unless defined $version;
 	my @errors;
+
+	# Validate acceptable genesis version
+	if (defined $meta->{genesis_version_min}) {
+		if (!is_semver $meta->{genesis_version_min}) {
+			print STDERR "Specified genesis_version_min for kit is invalid.\n";
+			die ($is_author ? "Cannot continue.\n" : "Please contact your kit author for a fix.\n");
+		}
+		if (!is_semver $VERSION) {
+			print STDERR csprintf("%s",clean_heredoc(<<"			|EOF"));
+			|%R{WARNING:} Using a development version of Genesis.  Cannot tell if minimal
+			|version of Genesis (v$meta->{genesis_version_min}) by kit '$kit/$version' is met.
+			|EOF
+		} elsif (! new_enough "genesis", $VERSION, $meta->{genesis_version_min}) {
+			die (clean_heredoc(<<"			|EOF"));
+			|Kit $kit/$version requires Genesis version $meta->{genesis_version_min}, but installed
+			|Genesis is only version $VERSION.
+			|
+			|Please upgrade your version and don't forget to run `genesis embed` to update
+			|the version embedded in your deployment repository.
+			|EOF
+		}
+	}
 
 	# validate params
 	for my $subkit (sort keys %{$meta->{params}}) {
