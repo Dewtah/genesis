@@ -312,6 +312,9 @@ sub get_file {
 	return $contents;
 }
 
+sub boolean_to_yaml {
+	return $_[0] ? "true" : "false";
+}
 sub yaml_bool {
 	my ($bool, $default) = @_;
 	return ($default || 0) unless defined($bool);
@@ -556,6 +559,7 @@ sub kit_yaml_files {
 		return kit_yaml_files_in($env, $dir, @subkits);
 	}
 
+	#FIXME: This will be called if kit is present but version is not.
 	if (-d "dev") {
 		return kit_yaml_files_in($env, "dev", @subkits);
 	}
@@ -3227,7 +3231,6 @@ sub latest_kit_name_and_version {
 			die "Found multiple different kits!\n";
 		}
 		$kit = $n;
-
 		push @versions, [$v, semver($kit, $v)];
 	}
 	@versions > 0
@@ -3454,7 +3457,7 @@ sub prompt_for_subkits {
 	my @subkits;
 	for my $prompt (@{$_[0]}) {
 		my $subkit;
-
+		# TODO: use existing prompt_for_choices and prompt_for_boolean to keep consistent interface
 		if (exists $prompt->{choices}) {
 			$subkit = prompt_for_subkits_alternates($prompt);
 		} else {
@@ -4123,7 +4126,6 @@ sub {
 
 # }}}
 # genesis ci - generate pipeline YAML template file to be used by genesis repipe to generate a pipeline file. {{{
-
 command("ci", <<EOF,
 genesis v$VERSION
 USAGE: genesis ci [--name ci.yml]
@@ -4217,6 +4219,8 @@ sub {
 	explain "\n#g{Generated CI template file:} #C{$name}\n";
 });
 
+#}}}
+# genesis ci support method: prompt_for_git {{{
 sub prompt_for_git {
 	explain "\n#Y{Git Repository Details}";
 	my $pipeline_name = shift;
@@ -4274,6 +4278,8 @@ sub prompt_for_git {
 	return \%git;
 }
 
+#}}}
+# genesis ci support method: prompt_for_notifications {{{
 sub prompt_for_notifications {
 	my (%notifications,$have_key);
 
@@ -4339,6 +4345,8 @@ sub prompt_for_notifications {
 	return \%notifications;
 }
 
+#}}}
+# genesis ci support method: prompt_for_locker {{{
 sub prompt_for_locker {
 	my (%locker);
 
@@ -4379,6 +4387,8 @@ sub prompt_for_locker {
 	return \%locker;
 }
 
+#}}}
+# genesis ci support method: prompt_for_vault {{{
 sub prompt_for_vault {
 	my ($name, %envs) = @_;
 	explain "\n#Y{Vault Connection Details}";
@@ -4484,6 +4494,8 @@ sub prompt_for_vault {
 	return \%vault;
 }
 
+#}}}
+# genesis ci support method: prompt_for_boshes_and_stemcells_for {{{
 sub prompt_for_boshes_and_stemcells_for {
 	my ($ask_stemcells, %envs) = @_;
 
@@ -4515,7 +4527,7 @@ sub prompt_for_boshes_and_stemcells_for {
 		$chosen_envs{$e} = $envs{$e};
 
 		$boshenvs{$env} = {};
-		my %bosh_info = $boshes{$envs{$e}{bosh}} ? %{$boshes{$envs{$e}{bosh}}} : ();
+		my %bosh_info = $boshes{$envs{$e}{bosh}} ? %{$boshes{$envs{$e}{bosh} }} : ();
 		# Get display name (defaults to environment)
 		$boshenvs{$env}{alias} = prompt_for_line("Display name", undef, $env);
 
@@ -4603,6 +4615,8 @@ sub prompt_for_boshes_and_stemcells_for {
 	return (\%boshenvs, \%used_stemcells, %chosen_envs);
 }
 
+#}}}
+# genesis ci support method: prompt_for_layouts_for {{{
 sub prompt_for_layouts_for {
 	my %envs = @_;
 
@@ -4644,10 +4658,8 @@ sub prompt_for_layouts_for {
 	return \%layouts;
 }
 
-sub boolean_to_yaml {
-	return $_[0] ? "true" : "false";
-}
-
+#}}}
+# genesis ci support method: generate_ci_template_file {{{
 sub generate_ci_template_file() {
 	my ($pipeline, $name) = @_;
 
@@ -4790,7 +4802,7 @@ EOF
 
 	close $OUT;
 }
-# }}}
+#}}}
 # genesis deploy - Pull in Cloud Config, Generate a manifest, deploy {{{
 
 command("deploy", <<EOF,
@@ -5600,7 +5612,6 @@ sub generate_ci_hcl_file {
 
 # }}}
 # genesis ci-pipeline-deploy - Deploy via the CI/CD Pipeline {{{
-
 command("ci-pipeline-deploy", <<EOF,
 genesis v$VERSION
 USAGE genesis ci-pipeline-deploy
