@@ -542,6 +542,49 @@ sub kit_yaml_files_in {
 	return @files;
 }
 
+sub kit_blueprint_script {
+	return clean_heredoc(<<'	|EOF');
+	|#!/bin/bash
+	|# Genesis hooks/blueprint script
+	|#
+	|# This script outputs the list of merge files needed to support the desired
+	|# feature set selected by the environment parameter file.  As generated, it
+	|# lists all *.yml files in the base, then all *.yml files in each detected
+	|# subkit directory, in the order the subkits are specified in the environment
+	|# yml file.  If finer control is desired, add logic around the wants_kit_feature()
+	|# function (takes a feature as a string, returns exit code 0 if present, non-
+	|# zero exit code otherwise).
+	|
+	|set -eu
+	|declare -a manifests
+	|manifests+=(base/*.yml)
+	|
+	|for dir in feature/*; do
+	|	sub=$(basename $dir)
+	|	if wants_kit_feature $sub; then
+	|		manifests+=($dir/*.yml)
+	|	fi
+	|done
+    |echo ${manifests[@]}
+	|EOF
+}
+
+sub kit_blueprint_script_helper {
+	my ($env_file) = @_;
+	my $out = clean_heredoc(<<"		|EOF");
+		|export GENESIS_ENV_FILE="$env_file";
+		|export kit_features=\$(spruce json \$GENESIS_ENV_FILE | jq -Mr '.kit.subkits[]')
+		|wants_kit_feature() {
+		|	want=\${1:?wants_kit_feature() -- must specify a feature}
+		|	for feature in \$kit_features; do
+		|		[[ "\$want" == "\$feature" ]] && return 0
+		|	done
+		|	return 1
+		|}
+		|export -f using_kit_feature
+		|EOF
+}
+
 sub kit_yaml_files {
 	my ($env) = @_;
 	my @files;
@@ -5020,28 +5063,35 @@ update:
 EOF
 
 	# Subkits
-	mkdir_or_fail "$dir/subkits";
-	my $subkit_groups="";
-	my $subkit_param_groups="";
-	my $subkit_prompts="";
-	foreach my $subkit_req (@_) {
-		my ($subkit,$prompt) = split("=",$subkit_req, 2);
-		mkdir_or_fail "$dir/subkits/$subkit";
-		$subkit_groups .= "  $subkit: {}\n";
-		$subkit_param_groups .= "  $subkit: []\n";
+	mkdir_or_fail "$dir/features";
+	my $feature_groups="";
+	my $feature_param_groups="";
+	my $feature_prompts="";
+	foreach my $feature_req (@_) {
+		my ($feature,$prompt) = split("=",$feature_req, 2);
+		mkdir_or_fail "$dir/features/$feature";
+		$feature_groups .= "  $feature: {}\n";
+		$feature_param_groups .= "  $feature: []\n";
 		next if defined($prompt) && $prompt eq '-';
-		$prompt ||= "Do you want to use subkit '$subkit'?";
-		$subkit_prompts .= "- prompt: $prompt\n  subkit: $subkit\n";
+		$prompt ||= "Do you want to use feature '$feature'?";
+		$feature_prompts .= "- prompt: $prompt\n  feature: $feature\n";
 
-		mkfile_or_fail "$dir/subkits/$subkit/params.yml", "---\nparams: {}\n";
-		mkfile_or_fail "$dir/subkits/$subkit/$subkit.yml", "--- {}\n";
+		mkfile_or_fail "$dir/features/$feature/params.yml", "---\nparams: {}\n";
+		mkfile_or_fail "$dir/features/$feature/$feature.yml", "--- {}\n";
 	}
 
-	my $subkits = "";
-	if ($subkit_prompts) {
-		$subkits = "subkits:\n$subkit_prompts";
+	my $features = "";
+	if ($feature_prompts) {
+		$features = "features:\n$feature_prompts";
 	} else {
-		$subkits = "subkits: []\n";
+		$features = "features: []\n";
+	}
+
+	my $gen_version="";
+	if (is_semver $VERSION) {
+		$gen_version = "\ngenesis_min_version: $VERSION\n\n";
+	} else {
+		print $STDERR csprintf("%R{Warning:} Using development version of Genesis -- cannot specify minimum Genesis version\n\n");
 	}
 
 	chomp(my $user = qx'git config user.name');
@@ -5092,11 +5142,11 @@ genesis init --kit $options{name} -d my-$options{name}-configs
 
 Once created, refer to the deployment repo's README for information on creating
 
-Subkits
+Features
 -------
 
 FIXME: The kit author should have filled this in with details
-about what subkits are defined, and how they affect the deployment. But they
+about what features are defined, and how they affect the deployment. But they
 have not, and that is sad. Perhaps a GitHub issue should be opened to remind
 them of this?
 
@@ -5104,8 +5154,8 @@ Params
 ------
 
 FIXME: The kit author should have filled this in with details about the params
-present in the base kit, as well as each subkit defined. These should likely
-be in different sections (one for base, one per subkit). Unfortunately,
+present in the base kit, as well as each feature defined. These should likely
+be in different sections (one for base, one per feature). Unfortunately,
 the author has not done this, and that is sad. Perhaps a GitHub issue
 should be opened to remind them of this?
 
@@ -5119,6 +5169,9 @@ scaling considerations, and other miscellaneous IaaS components that the deploym
 might require, like load balancers.
 
 EOF
+
+	mkdir_or_fail "$dir/hooks";
+	mkfile_or_fail "$dir/hooks/blueprint", kit_blueprint_script
 
 });
 
