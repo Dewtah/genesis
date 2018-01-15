@@ -5099,10 +5099,11 @@ EOF
 	mkfile_or_fail "$dir/kit.yml", <<EOF;
 ---
 name: $options{name}
+version: 0.0.1
 author: $user <$email>
 homepage: https://github.com/cloudfoundry-community/$options{name}-boshrelease
 github: https://github.com/genesis-community/$options{name}-genesis-kit
-
+$gen_version
 $subkits
 params:
   base: []
