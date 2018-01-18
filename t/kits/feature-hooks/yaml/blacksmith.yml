@@ -1,0 +1,89 @@
+---
+meta:
+  vault: (( concat "secret/" params.vault ))
+
+params:
+  stemcell_os:      ubuntu-trusty
+  stemcell_version: latest
+  availability_zones: [z1]
+
+  network: blacksmith
+  ip:      (( param "Please specify the static IP address for the Blacksmith Service Broker" ))
+
+  vm_type:   blacksmith
+  disk_size: 20480
+
+  blacksmith_debug: false
+  blacksmith_port:  3000
+  blacksmith_env:   (( grab params.env )
+
+  cloud_config: (( param "Please specify a complete BOSH v2 cloud-config, for the Blacksmith internal BOSH director to use" ))
+
+  releases: []
+  stemcells:
+    - name:    bosh-vsphere-esxi-ubuntu-trusty-go_agent
+      version: '3468.17'
+      url:     https://bosh.io/d/stemcells/bosh-vsphere-esxi-ubuntu-trusty-go_agent?v=3468.17
+      sha1:    1691f18b9141ac59aec893a1e8437a7d68a88038
+
+  # optional proxy support
+  http_proxy:  ""
+  https_proxy: ""
+  no_proxy:    ""
+
+
+
+
+
+instance_groups:
+  - name:      blacksmith
+    instances: 1
+    stemcell:  default
+    azs:             (( grab params.availability_zones ))
+    vm_type:         (( grab params.vm_type ))
+    persistent_disk: (( grab params.disk_size ))
+    networks:
+      - name:       (( grab params.network ))
+        static_ips: [(( grab params.ip ))]
+    jobs:
+      - release: blacksmith
+        name:    blacksmith
+        properties:
+          debug: (( grab params.blacksmith_debug ))
+          env:   (( grab params.blacksmith_env ))
+
+          broker:
+            port:     (( grab params.blacksmith_port ))
+            username: blacksmith
+            password: (( vault meta.vault "/broker:password" ))
+
+          bosh:
+            username: blacksmith
+            password: (( vault meta.vault "/users/blacksmith:password" ))
+            address:  (( concat "https://" params.ip ":25555" ))
+            stemcells:    (( grab params.stemcells ))
+            releases:     (( grab params.releases ))
+            cloud-config: (( grab params.cloud_config ))
+
+
+
+
+
+releases:
+  - name:    blacksmith
+    version: 0.0.4
+    url:     https://github.com/cloudfoundry-community/blacksmith-boshrelease/releases/download/v0.0.4/blacksmith-0.0.4.tgz
+    sha1:    d45bb4b812f86482723eaede8969f15cea41f4db
+
+stemcells:
+  - alias: default
+    os:      (( grab params.stemcell_os ))
+    version: (( grab params.stemcell_version ))
+
+update:
+  serial: false
+  canaries: 1
+  canary_watch_time: 30000-600000
+  update_watch_time: 5000-600000
+  max_in_flight: 1
+  max_errors: 1

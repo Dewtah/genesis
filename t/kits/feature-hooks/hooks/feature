@@ -1,0 +1,67 @@
+#!/bin/bash
+
+#
+# This is a test case extracted from the real-world adventures of James in
+# Genesis Land! Specifically, trying to allow the Blacksmith kit to either
+# deploy a local BOSH director on the Blacksmith Broker VM, or utilize an
+# existing BOSH director somewhere else.
+#
+# In the first case, we need to know what IaaS / CPI to use for the
+# colocated BOSH director.  In the second case we need to know where the
+# external BOSH director is, and what credentials we should use to access
+# it.
+
+cpis=0
+forges=0
+
+for kit in $@; do
+  case $kit in
+
+   ######  ########  ####
+  ##    ## ##     ##  ##
+  ##       ##     ##  ##
+  ##       ########   ##
+  ##       ##         ##
+  ##    ## ##         ##
+   ######  ##        ####
+  vsphere)
+    cpis=$(( cpis + 1 ))
+    ;;
+
+
+  ########  #######  ########   ######   ########  ######
+  ##       ##     ## ##     ## ##    ##  ##       ##    ##
+  ##       ##     ## ##     ## ##        ##       ##
+  ######   ##     ## ########  ##   #### ######    ######
+  ##       ##     ## ##   ##   ##    ##  ##             ##
+  ##       ##     ## ##    ##  ##    ##  ##       ##    ##
+  ##        #######  ##     ##  ######   ########  ######
+  redis)
+    forges=$(( forges + 1 ))
+    ;;
+  rabbitmq)
+    forges=$(( forges + 1 ))
+    ;;
+  postgresql)
+    forges=$(( forges + 1 ))
+    ;;
+
+  *)
+    echo >&2 "Unrecognized subkit '$kit'"
+    exit 1
+  esac
+done
+
+
+if [[ $cpis -gt 1 ]]; then
+  echo >&2 "Too many CPIs enabled!"
+  exit 1
+fi
+
+if [[ $forges -lt 1 ]]; then
+  echo >&2 "No forges specified!"
+  exit 1
+fi
+
+
+echo "$@"

@@ -1,0 +1,78 @@
+#!/bin/bash
+
+#
+# This is a test case extracted from the real-world adventures of James in
+# Genesis Land! Specifically, trying to allow the Blacksmith kit to either
+# deploy a local BOSH director on the Blacksmith Broker VM, or utilize an
+# existing BOSH director somewhere else.
+#
+# In the first case, we need to know what IaaS / CPI to use for the
+# colocated BOSH director.  In the second case we need to know where the
+# external BOSH director is, and what credentials we should use to access
+# it.
+
+cpis=0
+forges=0
+
+declare -a forge_yamls
+declare -a yamls
+yamls+=( yaml/blacksmith.yml )
+
+for kit in $@; do
+  case $kit in
+
+   ######  ########  ####
+  ##    ## ##     ##  ##
+  ##       ##     ##  ##
+  ##       ########   ##
+  ##       ##         ##
+  ##    ## ##         ##
+   ######  ##        ####
+  vsphere)
+    cpis=$(( cpis + 1 ))
+    yamls+=( yaml/local-bosh.yml yaml/iaas/vsphere.yml )
+    ;;
+
+
+  ########  #######  ########   ######   ########  ######
+  ##       ##     ## ##     ## ##    ##  ##       ##    ##
+  ##       ##     ## ##     ## ##        ##       ##
+  ######   ##     ## ########  ##   #### ######    ######
+  ##       ##     ## ##   ##   ##    ##  ##             ##
+  ##       ##     ## ##    ##  ##    ##  ##       ##    ##
+  ##        #######  ##     ##  ######   ########  ######
+  redis)
+    forges=$(( forges + 1 ))
+    forge_yamls+=( yaml/redis.yml )
+    ;;
+  rabbitmq)
+    forges=$(( forges + 1 ))
+    forge_yamls+=( yaml/rabbitmq.yml )
+    ;;
+  postgresql)
+    forges=$(( forges + 1 ))
+    forge_yamls+=( yaml/postgres.yml )
+    ;;
+
+  *)
+    echo >&2 "Unrecognized subkit '$kit'"
+    exit 1
+  esac
+done
+
+if [[ $cpis -gt 1 ]]; then
+  echo >&2 "Too many CPIs enabled!"
+  exit 1
+elif [[ $cpis -eq 0 ]]; then
+  yamls+=( yaml/remote-bosh.yml )
+fi
+
+if [[ $forges -lt 1 ]]; then
+  echo >&2 "No forges specified!"
+  exit 1
+fi
+
+
+
+
+echo "${yamls[@]}" "${forge_yamls[@]}"
