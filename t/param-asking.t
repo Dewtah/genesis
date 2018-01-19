@@ -15,7 +15,7 @@ chdir $dir;
 reprovision kit => 'ask-params';
 
 my $cmd = Expect->new();
-$cmd->log_stdout(1);
+$cmd->log_stdout(0);
 $cmd->spawn("genesis new with-subkit --no-secrets");
 expect_ok "extra questions subkit", $cmd, [
 	'Should we ask additional questions?', sub {
